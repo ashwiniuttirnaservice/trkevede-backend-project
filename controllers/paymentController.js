@@ -4,12 +4,14 @@ const Booking = require("../models/Booking");
 const asyncHandler = require("../middleware/asyncHandler");
 const { sendResponse, sendError } = require("../utils/apiResponse");
 
-require("dotenv").config(); // <--- HI LINE ADD KARA
+require("dotenv").config(); // Load env variables
 
+// Razorpay instance
 const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID, // Ata yala value milel
+  key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
+
 // @desc    Create Razorpay Order
 // @route   POST /api/payments/create-order
 exports.createOrder = asyncHandler(async (req, res) => {
@@ -21,25 +23,32 @@ exports.createOrder = asyncHandler(async (req, res) => {
 
   try {
     const options = {
-      amount: Math.round(Number(amount) * 100),
+      amount: Math.round(Number(amount) * 100), // convert to paise
       currency: "INR",
       receipt: `receipt_${Date.now()}`,
     };
 
     const order = await razorpay.orders.create(options);
-    return sendResponse(res, 201, true, "Order Created Successfully", order);
+
+    return sendResponse(
+      res,
+      201,
+      true,
+      "Order Created Successfully",
+      order
+    );
   } catch (error) {
-    console.error("RAZORPAY ERROR:", error);
+    console.error("RAZORPAY CREATE ORDER ERROR:", error);
 
-    // Error status code check kara, jar nasel tar 500 vapra
-    const statusCode = error.statusCode || 500;
-    const message = error.error
-      ? error.error.description
-      : "Razorpay Order Failed";
-
-    return sendError(res, statusCode, false, message);
+    return sendError(
+      res,
+      error.statusCode || 500,
+      false,
+      error?.error?.description || "Razorpay Order Failed"
+    );
   }
 });
+
 // @desc    Verify Payment and Save Booking
 // @route   POST /api/payments/verify-payment
 exports.verifyPayment = asyncHandler(async (req, res) => {
@@ -50,18 +59,28 @@ exports.verifyPayment = asyncHandler(async (req, res) => {
     bookingData,
   } = req.body;
 
-  // 1. Signature check karne
-  const sign = razorpay_order_id + "|" + razorpay_payment_id;
-  const expectedSign = crypto
-    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-    .update(sign.toString())
-    .digest("hex");
-
-  if (razorpay_signature !== expectedSign) {
-    return sendError(res, false, 400, "Invalid Payment Signature!");
+  // Validate request
+  if (
+    !razorpay_order_id ||
+    !razorpay_payment_id ||
+    !razorpay_signature
+  ) {
+    return sendError(res, 400, false, "Payment details missing");
   }
 
-  // 2. Booking Database madhe save karne
+  // Verify signature
+  const sign = `${razorpay_order_id}|${razorpay_payment_id}`;
+
+  const expectedSignature = crypto
+    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+    .update(sign)
+    .digest("hex");
+
+  if (razorpay_signature !== expectedSignature) {
+    return sendError(res, 400, false, "Invalid Payment Signature");
+  }
+
+  // Save booking
   const booking = await Booking.create({
     ...bookingData,
     paymentDetails: {
@@ -72,5 +91,30 @@ exports.verifyPayment = asyncHandler(async (req, res) => {
     },
   });
 
-  sendResponse(res, 201, true, "Payment Verified & Booking Success", booking);
+  return sendResponse(
+    res,
+    201,
+    true,
+    "Payment Verified & Booking Successful",
+    booking
+  );
+});
+
+
+
+// @desc    Get All Payments
+// @route   GET /api/payments
+exports.getAllPayments = asyncHandler(async (req, res) => {
+  const payments = await Booking.find(
+    { "paymentDetails.status": "Captured" },
+    { paymentDetails: 1, user: 1, createdAt: 1 }
+  ).sort({ createdAt: -1 });
+
+  return sendResponse(
+    res,
+    200,
+    true,
+    "All Payments Fetched Successfully",
+    payments
+  );
 });

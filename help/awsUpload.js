@@ -34,10 +34,11 @@
 // }
 
 // export default uploadToAws;
-const FormData = require("form-data");
+// const FormData = require("form-data");
+
+
 const fs = require("fs");
 const path = require("path");
-const axios = require("axios");
 
 const mimeToExt = {
   "image/jpeg": "jpg",
@@ -62,28 +63,38 @@ async function uploadToAws({ file, fileName, folderName }) {
       path.extname(file.originalname || "").replace(".", "") ||
       "bin";
 
-    const dataFile = fs.readFileSync(file.path);
+    const buffer = fs.readFileSync(file.path);
     const formData = new FormData();
 
     formData.append("fileName", fileName);
     formData.append("folderName", `uploads/${folderName}`);
     formData.append("fileExtension", detectedExt);
-    formData.append("uploadFile", dataFile, {
-      filename: file.originalname || `${fileName}.${detectedExt}`,
-      contentType: file.mimetype || "application/octet-stream",
-    });
-    formData.append("extras", JSON.stringify({ appId: 1 }));
 
-    const headers = formData.getHeaders();
-    const response = await axios.post(
-      "https://aws-upload.uttirna.in/api/aws/upload",
-      formData,
-      { headers },
+    formData.append(
+      "uploadFile",
+      new Blob([buffer], { type: file.mimetype || "application/octet-stream" }),
+      file.originalname || `${fileName}.${detectedExt}`
     );
 
-    return response.data?.data;
+    formData.append("extras", JSON.stringify({ appId: 1 }));
+
+    const response = await fetch(
+      "https://aws-upload.uttirna.in/api/aws/upload",
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(errText);
+    }
+
+    const result = await response.json();
+    return result?.data;
   } catch (error) {
-    console.error("AWS Upload Error:", error.response?.data || error.message);
+    console.error("AWS Upload Error:", error.message);
     throw new Error("Failed to upload file to AWS");
   }
 }
