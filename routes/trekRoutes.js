@@ -5,21 +5,21 @@ const trekController = require("../controllers/trekController");
 const upload = require("../middleware/multer");
 
 router.post(
-    "/",
-    upload.fields([
-        { name: "TrekImage", maxCount: 1 },
-        { name: "TrekGallery", maxCount: 10 },
-    ]),
-    trekController.createTrek
+  "/",
+  upload.fields([
+    { name: "TrekImage", maxCount: 1 },
+    { name: "TrekGallery", maxCount: 10 },
+  ]),
+  trekController.createTrek,
 );
 
 router.put(
-    "/:id",
-    upload.fields([
-        { name: "TrekImage", maxCount: 1 },
-        { name: "TrekGallery", maxCount: 10 },
-    ]),
-    trekController.updateTrek
+  "/:id",
+  upload.fields([
+    { name: "TrekImage", maxCount: 1 },
+    { name: "TrekGallery", maxCount: 10 },
+  ]),
+  trekController.updateTrek,
 );
 router.get("/filter", trekController.filterTreksByDifficulty);
 router.get("/", trekController.getAllTreks);

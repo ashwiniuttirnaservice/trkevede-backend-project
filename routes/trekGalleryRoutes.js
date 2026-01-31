@@ -6,20 +6,18 @@ const trekGalleryController = require("../controllers/trekGalleryController");
 const upload = require("../middleware/multer");
 
 router.post(
-    "/",
-    upload.array("TrekGalleryImage", 10),
-    trekGalleryController.addGallery
+  "/",
+  upload.array("TrekGalleryImage", 10),
+  trekGalleryController.addGallery,
 );
 
 router.get("/", trekGalleryController.getAllGallery);
 
-
 router.put(
-    "/:id",
-    upload.array("TrekGalleryImage", 10),
-    trekGalleryController.updateGallery
+  "/:id",
+  upload.array("TrekGalleryImage", 10),
+  trekGalleryController.updateGallery,
 );
-
 
 router.delete("/:galleryId/:itemId", trekGalleryController.deleteGalleryItem);
 
