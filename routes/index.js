@@ -4,7 +4,9 @@ const trekCategoryRoutes = require("./trekCategoryRoutes");
 const trekGalleryRoutes = require("./trekGalleryRoutes");
 const trekReviewRoutes = require("./trekReviewRoutes");
 const wishlistRoutes = require("./wishlistRoutes");
-
+const adminRouter = require("./adminRoutes");
+const slotRoutes = require("./slotRoutes");
+const contactRouter = require("./contactRoutes");
 const indexRouter = express.Router();
 
 indexRouter.get("/", (req, res) => {
@@ -12,6 +14,9 @@ indexRouter.get("/", (req, res) => {
 });
 
 indexRouter.use("/trek", trekRoutes);
+indexRouter.use("/admin", adminRouter);
+indexRouter.use("/contact", contactRouter);
+indexRouter.use("/slots", slotRoutes);
 indexRouter.use("/trekCategory", trekCategoryRoutes);
 indexRouter.use("/trekGallery", trekGalleryRoutes);
 indexRouter.use("/trekReview", trekReviewRoutes);

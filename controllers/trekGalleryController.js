@@ -4,7 +4,6 @@ const { sendResponse, sendError } = require("../utils/apiResponse");
 const uploadToAws = require("../help/awsUpload");
 
 exports.addGallery = asyncHandler(async (req, res) => {
-  // 1. Validation
   if (!req.files || req.files.length === 0) {
     return sendError(
       res,
@@ -64,32 +63,19 @@ exports.getAllGallery = asyncHandler(async (req, res) => {
     "gallery.isActive": true,
   };
 
-  if (season && season !== "All") {
-    matchStage["gallery.season"] = season;
-  }
-
-  if (month && month !== "All") {
-    matchStage["gallery.month"] = month;
-  }
-
-  if (year && year !== "All") {
-    matchStage["gallery.year"] = year;
-  }
-
-  if (experience && experience !== "All") {
+  if (season && season !== "All") matchStage["gallery.season"] = season;
+  if (month && month !== "All") matchStage["gallery.month"] = month;
+  if (year && year !== "All") matchStage["gallery.year"] = year;
+  if (experience && experience !== "All")
     matchStage["gallery.experience"] = experience;
-  }
-
-  if (region && region !== "All") {
-    matchStage["gallery.region"] = region;
-  }
+  if (region && region !== "All") matchStage["gallery.region"] = region;
 
   const gallery = await TrekGallery.aggregate([
     { $unwind: "$gallery" },
     { $match: matchStage },
     {
       $project: {
-        _id: 0,
+        _id: "$gallery._id",
         photo: "$gallery.photo",
         title: "$gallery.title",
         month: "$gallery.month",
@@ -97,6 +83,7 @@ exports.getAllGallery = asyncHandler(async (req, res) => {
         season: "$gallery.season",
         experience: "$gallery.experience",
         region: "$gallery.region",
+        isActive: "$gallery.isActive",
       },
     },
   ]);
@@ -104,96 +91,90 @@ exports.getAllGallery = asyncHandler(async (req, res) => {
   return sendResponse(res, 200, true, "Gallery fetched successfully", gallery);
 });
 
-exports.updateGallery = asyncHandler(async (req, res) => {
-  const { id } = req.params; // This is the ID of the TrekGallery document
+exports.getGalleryItem = asyncHandler(async (req, res) => {
+  const { itemId } = req.params;
 
-  const galleryDoc = await TrekGallery.findById(id);
-  if (!galleryDoc) return sendError(res, 404, false, "Gallery not found");
+  const galleryDoc = await TrekGallery.findOne({ "gallery._id": itemId });
 
-  // --- PART 1: ADD NEW IMAGES TO GALLERY ---
-  if (req.files && req.files.length > 0) {
-    const newImages = await Promise.all(
-      req.files.map(async (file, index) => {
-        const uploadResult = await uploadToAws({
-          file: file,
-          fileName: `gallery_update_${Date.now()}_${index}`,
-          folderName: "gallery/trek-gallery",
-        });
-
-        return {
-          photo: uploadResult,
-          title: Array.isArray(req.body.title)
-            ? req.body.title[index]
-            : req.body.title || `New Image`,
-          season: Array.isArray(req.body.season)
-            ? req.body.season[index]
-            : req.body.season,
-          month: Array.isArray(req.body.month)
-            ? req.body.month[index]
-            : req.body.month,
-          year: Array.isArray(req.body.year)
-            ? req.body.year[index]
-            : req.body.year,
-          experience: Array.isArray(req.body.experience)
-            ? req.body.experience[index]
-            : req.body.experience,
-          region: Array.isArray(req.body.region)
-            ? req.body.region[index]
-            : req.body.region,
-        };
-      }),
-    );
-
-    galleryDoc.gallery.push(...newImages);
+  if (!galleryDoc) {
+    return sendError(res, 404, false, "Gallery item not found");
   }
 
-  if (req.body.updates) {
-    const metadataUpdates =
-      typeof req.body.updates === "string"
-        ? JSON.parse(req.body.updates)
-        : req.body.updates;
+  const singleItem = galleryDoc.gallery.id(itemId);
 
-    metadataUpdates.forEach((update) => {
-      const item = galleryDoc.gallery.id(update._id);
-      if (item) {
-        if (update.title) item.title = update.title;
-        if (update.season) item.season = update.season;
-        if (update.month) item.month = update.month;
-        if (update.year) item.year = update.year;
-        if (update.experience) item.experience = update.experience;
-        if (update.region) item.region = update.region;
-        if (typeof update.isActive !== "undefined")
-          item.isActive = update.isActive;
-      }
+  return sendResponse(res, 200, true, "Item fetched successfully", singleItem);
+});
+
+exports.updateGalleryItem = asyncHandler(async (req, res) => {
+  const { itemId } = req.params;
+  const { title, season, month, year, experience, region } = req.body;
+
+  // 1. Pehle ye check karo ki kya ye item exist karta hai
+  const galleryDoc = await TrekGallery.findOne({ "gallery._id": itemId });
+
+  if (!galleryDoc) {
+    return sendError(res, 404, false, "Item not found in any gallery");
+  }
+
+  // Purana item nikaal lo (AWS deletion ke liye agar zarurat pade)
+  const oldItem = galleryDoc.gallery.id(itemId);
+  let updatedPhoto = oldItem.photo;
+
+  // 2. Agar nayi file upload hui hai
+  if (req.file) {
+    // Purani file delete karna (optional)
+    if (updatedPhoto && updatedPhoto.key) {
+      await deleteFromAws(updatedPhoto.key);
+    }
+
+    const uploadResult = await uploadToAws({
+      file: req.file,
+      fileName: `gallery_updated_${Date.now()}`,
+      folderName: "gallery/trek-gallery",
     });
+    updatedPhoto = uploadResult;
   }
 
-  await galleryDoc.save();
+  // 3. Atomic update using positional operator ($)
+  const updatedDoc = await TrekGallery.findOneAndUpdate(
+    { "gallery._id": itemId },
+    {
+      $set: {
+        "gallery.$.photo": updatedPhoto,
+        "gallery.$.title": title || oldItem.title,
+        "gallery.$.season": season || oldItem.season,
+        "gallery.$.month": month || oldItem.month,
+        "gallery.$.year": year || oldItem.year,
+        "gallery.$.experience": experience || oldItem.experience,
+        "gallery.$.region": region || oldItem.region,
+      },
+    },
+    { new: true }
+  );
 
   return sendResponse(
     res,
     200,
     true,
-    "गॅलरी यशस्वीरित्या अपडेट झाली! (Gallery updated successfully)",
-    galleryDoc,
+    "गॅलरी आयटम अपडेट झाला! (Item updated successfully)",
+    updatedDoc
   );
 });
 
 exports.deleteGalleryItem = asyncHandler(async (req, res) => {
-  const { galleryId, itemId } = req.params;
-  const galleryDoc = await TrekGallery.findById(galleryId);
-  if (!galleryDoc) return sendError(res, 404, "Gallery not found");
+  const { itemId } = req.params;
 
-  const item = galleryDoc.gallery.id(itemId);
-  if (!item) return sendError(res, 404, "Gallery item not found");
+  const galleryDoc = await TrekGallery.findOne({
+    "gallery._id": itemId,
+  });
 
-  item.remove();
+  if (!galleryDoc) {
+    return sendError(res, 404, false, "Gallery item not found");
+  }
+
+  galleryDoc.gallery.pull({ _id: itemId });
+
   await galleryDoc.save();
 
-  return sendResponse(
-    res,
-    200,
-    "Gallery item deleted successfully",
-    galleryDoc,
-  );
+  return sendResponse(res, 200, true, "Gallery item deleted successfully");
 });

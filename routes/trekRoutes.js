@@ -21,7 +21,7 @@ router.put(
   ]),
   trekController.updateTrek,
 );
-router.get("/filter", trekController.filterTreksByDifficulty);
+router.get("/filter", trekController.filterTreksByCategory);
 router.get("/", trekController.getAllTreks);
 router.get("/:id", trekController.getTrekById);
 

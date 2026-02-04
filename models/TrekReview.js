@@ -16,7 +16,7 @@ const TrekReviewSchema = new mongoose.Schema(
     },
 
     profilePhoto: {
-      type: Object, // Changed to Object for AWS
+      type: Object,
       default: null,
     },
 
