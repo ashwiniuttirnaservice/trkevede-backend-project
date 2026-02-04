@@ -13,12 +13,14 @@ router.post(
 
 router.get("/", trekGalleryController.getAllGallery);
 
+router.get("/:itemId", trekGalleryController.getGalleryItem);
+
 router.put(
-  "/:id",
+  "/:itemId",
   upload.array("TrekGalleryImage", 10),
-  trekGalleryController.updateGallery,
+  trekGalleryController.updateGalleryItem,
 );
 
-router.delete("/:galleryId/:itemId", trekGalleryController.deleteGalleryItem);
+router.delete("/:itemId", trekGalleryController.deleteGalleryItem);
 
 module.exports = router;

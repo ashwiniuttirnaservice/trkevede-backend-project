@@ -44,7 +44,7 @@ const TrekSchema = new mongoose.Schema(
     ],
 
     gallery: {
-      type: [Object], // [String] chya jaagi ha badal kara
+      type: [Object],
       required: false,
       default: [],
     },
@@ -102,6 +102,12 @@ const TrekSchema = new mongoose.Schema(
       },
     ],
 
+    bookingType: {
+      type: String,
+      enum: ["Trek", "Trek + Camping", "Trip"],
+      required: false,
+    },
+
     proTrekkerBenefit: { type: String },
     govtEligibility: { type: String },
 
@@ -112,12 +118,10 @@ const TrekSchema = new mongoose.Schema(
       scholarships: { type: String },
     },
 
-    months: [
+    slots: [
       {
-        month: String,
-        season: String,
-        badge: String,
-        slotsAvailable: { type: Boolean, default: true },
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Slot",
       },
     ],
     isActive: { type: Boolean, default: true },

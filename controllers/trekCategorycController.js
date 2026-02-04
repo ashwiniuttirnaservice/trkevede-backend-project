@@ -13,13 +13,13 @@ exports.createCategory = asyncHandler(async (req, res) => {
 
   let catImageData = null;
 
-  // AWS Logic for Category Image
+
   if (req.file) {
     try {
       catImageData = await uploadToAws({
         file: req.file,
         fileName: `category_${Date.now()}`,
-        folderName: "category/trekkvede-category", // Helper adds 'uploads/'
+        folderName: "category/trekkvede-category",
       });
     } catch (awsError) {
       console.error("AWS Category Upload Error:", awsError.message);
@@ -32,7 +32,7 @@ exports.createCategory = asyncHandler(async (req, res) => {
     description,
     tag,
     difficulty,
-    catImage: catImageData, // Saves the {url, key} object
+    catImage: catImageData,
     isActive,
   });
 

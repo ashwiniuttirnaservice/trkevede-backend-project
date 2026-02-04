@@ -8,6 +8,13 @@ const BookingSchema = new mongoose.Schema(
       required: true,
     },
 
+    slots: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Slot",
+      },
+    ],
+
     name: { type: String, required: true, trim: true },
     whatsappNumber: { type: String, required: true },
     email: { type: String, required: true, lowercase: true },
@@ -22,11 +29,6 @@ const BookingSchema = new mongoose.Schema(
     departureDate: { type: Date, required: true },
     numberOfPeople: { type: Number, required: true, default: 1 },
 
-    bookingType: {
-      type: String,
-      enum: ["Trek", "Trek + Camping", "Trip"],
-      required: true,
-    },
     needCoupleTent: { type: Boolean, default: false },
     needPrivateRoom: { type: Boolean, default: false },
 
